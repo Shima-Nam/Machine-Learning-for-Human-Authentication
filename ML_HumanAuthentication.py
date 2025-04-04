@@ -235,3 +235,77 @@ del CC2_max_X, CC2_max_X_final, CC2_max_X_list, CC2_max_Xt, CC2_max_Xt_final, CC
 del CC1_X, CC1_X_final, CC1_X_list, CC1_Xt, CC1_Xt_final, CC1_Xt_list
 del Test, i, test_sz, X_sel, X_sel_split, X_Supervisor, X_test, X_train, X_y_Supervisor, X_y_test
 del X_y_train, y_Supervisor, y_test, y_train, X, y 
+
+#%%
+#Classification
+
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import GridSearchCV
+from sklearn.ensemble import RandomForestClassifier
+from catboost import CatBoostClassifier
+
+# Define hyperparameter grids for the model
+param_grid = [
+    {
+        'model': [CatBoostClassifier(verbose=0)],  # Suppress training logs
+        'model__iterations': [100, 200, 300],
+        'model__learning_rate': [0.01 , 0.3, 0.5]
+    }    
+    ]
+
+dict_nb = [0, 1, 2]
+feature_nb = [10, 20, 31]
+# Dictionary to store results
+results = {}
+
+for i in dict_nb:
+    #break the dictionary to each train_test split
+    train_test_set = CC_X_dict[i]
+    Xtrain1_mean = train_test_set['CC1_X_final'].drop('Subject_ID',axis = 1)
+    ytrain1    = train_test_set['CC1_X_final'].Subject_ID
+    Xtrain2_max  = train_test_set['CC2_max_X_final'].drop('Subject_ID',axis = 1)
+    #ytrain2    = train_test_set['CC2_max_X_final'].Subject_ID
+    Xtest1_mean  = train_test_set['CC1_Xt_final'].drop('Subject_ID',axis = 1)
+    ytest1     = train_test_set['CC1_Xt_final'].Subject_ID
+    Xtest2_max   = train_test_set['CC2_max_Xt_final'].drop('Subject_ID',axis = 1)
+   # ytest2     = train_test_set['CC2_max_Xt_final'].Subject_ID
+
+    results[i] = {}  # Store results per train-test split
+    
+    for subset_idx, col in enumerate(feature_nb):
+      
+        X_train_subset = pd.concat([Xtrain1_mean.iloc[:, :col], Xtrain2_max.iloc[:, :col]], axis = 1)
+        y_train = ytrain1 #same as ytrain2
+        X_test_subset = pd.concat([Xtest1_mean.iloc[:, :col], Xtest2_max.iloc[:, :col]], axis = 1)      
+        y_test = ytest1 
+        
+        # Define a new pipeline for each iteration
+        pipeline = Pipeline([
+            ('model', RandomForestClassifier(random_state=108))])
+
+        # Define a new GridSearchCV instance over multiple estimators
+        grid_search = GridSearchCV(pipeline, param_grid, cv=5, scoring='accuracy', n_jobs=-1)
+
+        # Fit GridSearchCV on the current training data
+        grid_search.fit(X_train_subset, y_train)
+
+       # i = split_idx
+        results[i][subset_idx] = {
+            'cv_results' : grid_search.cv_results_,
+            'best_model' : grid_search.best_estimator_,
+            'best_params': grid_search.best_params_,
+            'test_score' : grid_search.score(X_test_subset, y_test),
+            'best_score' : grid_search.best_score_
+        }
+
+import pickle
+
+# Save results
+with open("...\\results.pkl", "wb") as f:
+    pickle.dump(results, f)
+
+#%%
+
+# Load results later
+with open("...\\results.pkl", "rb") as f:
+    loaded_results = pickle.load(f)
