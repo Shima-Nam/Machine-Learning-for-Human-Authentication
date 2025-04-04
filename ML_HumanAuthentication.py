@@ -304,8 +304,47 @@ import pickle
 with open("...\\results.pkl", "wb") as f:
     pickle.dump(results, f)
 
-#%%
-
 # Load results later
 with open("...\\results.pkl", "rb") as f:
     loaded_results = pickle.load(f)
+
+#%%                
+#Visualiztion
+import matplotlib.pyplot as plt
+
+Test = [0.6, 0.4, 0.2]  # Define the actual test sizes
+
+for idx, (test_size, subsets) in enumerate(loaded_results.items()):
+    feature_counts = []
+    accuracies = []
+
+    for feature_idx, data in subsets.items():
+        feature_counts.append(feature_nb[feature_idx])  # Number of features
+        accuracies.append(data['test_score'])  # Accuracy
+
+    plt.plot(feature_counts, accuracies, marker='o', label=f"Test size: {Test[idx]}")  # Use actual test size
+
+plt.xlabel("Number of Features")
+plt.ylabel("Accuracy")
+plt.title("Accuracy vs Number of Features")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+test_sizes = []
+best_accuracies = []
+
+for test_size, subsets in loaded_results.items():
+    test_sizes.append(test_size)
+    
+    # Get the best accuracy for this test size
+    best_acc = max(subsets[feature_idx]['test_score'] for feature_idx in subsets)
+    best_accuracies.append(best_acc)
+
+plt.plot(test_sizes, best_accuracies, marker='s', linestyle='-', color='r')
+plt.xticks([0, 1 , 2], labels = [0.6, 0.4, 0.2])
+plt.xlabel("Test Size")
+plt.ylabel("Best Accuracy")
+plt.title("Accuracy vs Test Size")
+plt.grid(True)
+plt.show()
