@@ -83,3 +83,155 @@ selected_features_names = X.columns[selected_features]
 
 del ax1, ax2, cluster_id, fig, idx, cluster_id_to_feature_ids, cluster_ids, corr, dendro,
 del dendro_idx, dist_linkage, distance_matrix
+
+#%%
+#developing CC1 and CC2 functions
+
+def CC(X, Supervisor):
+    CC1 = []  # Stores mean difference (CC1)
+    CC2_min = []  # Stores min difference (CC2_min)
+    CC2_max = []  # Stores max difference (CC2_max)
+    subject_ids = []  # To track Subject_IDs
+
+    # Ensure data is sorted by Subject_ID
+    X = X.sort_values(by='Subject_ID').reset_index(drop=True)
+    Supervisor = Supervisor.sort_values(by='Subject_ID').reset_index(drop=True)
+
+    # Group data by Subject_ID
+    for subject, X_group in X.groupby("Subject_ID"):
+        # Get supervisor values for this subject (drop Subject_ID for subtraction)
+        Supervisor_values = Supervisor[Supervisor["Subject_ID"] == subject].drop(columns=["Subject_ID"]).values
+        
+        # Drop Subject_ID from X_group as well
+        X_group = X_group.drop(columns=["Subject_ID"]).reset_index(drop=True)
+
+        # Iterate over beats in chunks of 10
+        for i in range(0, len(X_group), 10):
+            if i + 10 > len(X_group):  # Avoid exceeding available beats
+                break
+
+            # Select 10 beats
+            X_chunk = X_group.iloc[i:i+10]
+
+            # Compute absolute difference with Supervisor
+            diff = np.abs(X_chunk - Supervisor_values)
+
+            # Compute mean, min, and max across the 10 beats
+            CC1.append(diff.mean(axis=0))  # Mean difference (CC1)
+            CC2_min.append(diff.min(axis=0))  # Min difference (CC2_min)
+            CC2_max.append(diff.max(axis=0))  # Max difference (CC2_max)
+
+            # Store Subject_ID
+            subject_ids.append(subject)
+
+    # Convert lists to DataFrame
+    CC1_df = pd.DataFrame(CC1, columns=X_group.columns)
+    CC2_min_df = pd.DataFrame(CC2_min, columns=X_group.columns)
+    CC2_max_df = pd.DataFrame(CC2_max, columns=X_group.columns)
+
+    # Rename the columns    
+    CC1_df = CC1_df.add_suffix('_mean')
+    CC2_min_df = CC2_min_df.add_suffix('_min')
+    CC2_max_df = CC2_max_df.add_suffix('_max')
+
+    # Add Subject_IDs
+    CC1_df.insert(0, "Subject_ID", subject_ids)
+    CC2_min_df.insert(0, "Subject_ID", subject_ids)
+    CC2_max_df.insert(0, "Subject_ID", subject_ids)
+    
+    return CC1_df, CC2_min_df, CC2_max_df
+
+X_sel = df[selected_features_names] #total raw data with selected features
+X_sel['Subject_ID'] = df.Subject_ID
+
+from sklearn.model_selection import train_test_split
+
+# looping over the test size
+Test = np.linspace(0.6, 0.2, num=3)
+
+CC1_X_list, CC2_min_X_list, CC2_max_X_list = [], [], []
+CC1_Xt_list, CC2_min_Xt_list, CC2_max_Xt_list = [], [], []
+CC_X_dict = {}
+
+#we can estimate the number of iteration on selecting the supervisor beats through simulation (Monte Carlo method).
+#From simulations, the expected number of iterations typically falls between 25 and 35 iterations.
+#The actual value may slightly vary depending on randomness.
+
+for i,test_sz in enumerate(Test):
+  
+    for _ in range(10):
+        
+        #first selecting 10 supervisor_beats and 100 beats for split
+        num_beats = 110
+        data = (
+            X_sel.groupby("Subject_ID")
+            .apply(lambda x: x.sample(n=num_beats, random_state=108))
+            .reset_index(drop=True)
+        )    
+    
+        num_supervisor_beats = 10
+        supervisor_beats = (
+            data.groupby("Subject_ID")
+            .apply(lambda x: x.sample(n=num_supervisor_beats)) 
+        )
+    
+        supervisor_beats_index = supervisor_beats.index.get_level_values(1)
+        supervisor_beats = supervisor_beats.reset_index(drop=True)
+        X_sel_split = data.drop(index=supervisor_beats_index).reset_index(drop = True)
+        
+        #--------------------
+        #spliting train and test sets and scaling
+        X = X_sel_split.drop('Subject_ID', axis=1)
+        y = X_sel_split.Subject_ID
+        X_Supervisor = supervisor_beats.drop('Subject_ID', axis=1)
+        y_Supervisor = supervisor_beats.Subject_ID
+        
+        #split
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = test_sz, random_state = 108, stratify=y)
+        #scale
+        X_train = scaler.fit_transform(X_train)
+        X_Supervisor = scaler.fit_transform(X_Supervisor)
+        X_test = scaler.transform(X_test)    
+        
+        #---------
+        # Calculation of CC1 and CC2
+        
+        X_y_train = X_train  
+        X_y_train['Subject_ID'] = y_train
+        X_y_Supervisor = X_Supervisor 
+        X_y_Supervisor['Subject_ID'] = y_Supervisor
+        X_y_test = X_test
+        X_y_test['Subject_ID'] = y_test
+        CC1_X, CC2_min_X, CC2_max_X = CC(X_y_train, X_y_Supervisor)
+        CC1_Xt, CC2_min_Xt, CC2_max_Xt = CC(X_y_test, X_y_Supervisor )
+        
+        # Append results to the lists
+        CC1_X_list.append(CC1_X)
+        CC2_min_X_list.append(CC2_min_X)
+        CC2_max_X_list.append(CC2_max_X)
+        
+        CC1_Xt_list.append(CC1_Xt)
+        CC2_min_Xt_list.append(CC2_min_Xt)
+        CC2_max_Xt_list.append(CC2_max_Xt)
+  
+    # Concatenate results supervisor iteration for each test set
+    CC1_X_final = pd.concat(CC1_X_list, ignore_index=True)
+    CC2_min_X_final = pd.concat(CC2_min_X_list, ignore_index=True)
+    CC2_max_X_final = pd.concat(CC2_max_X_list, ignore_index=True)
+    
+    CC1_Xt_final = pd.concat(CC1_Xt_list, ignore_index=True)
+    CC2_min_Xt_final = pd.concat(CC2_min_Xt_list, ignore_index=True)
+    CC2_max_Xt_final = pd.concat(CC2_max_Xt_list, ignore_index=True)
+
+    CC_X_dict[i] = {'CC1_X_final': CC1_X_final,
+                     'CC2_min_X_final': CC2_min_X_final,
+                     'CC2_max_X_final': CC2_max_X_final,
+                     'CC1_Xt_final': CC1_Xt_final,
+                     'CC2_min_Xt_final': CC2_min_Xt_final,
+                     'CC2_max_Xt_final': CC2_max_Xt_final}
+
+del CC2_min_X, CC2_min_X_final, CC2_min_X_list, CC2_min_Xt, CC2_min_Xt_final, CC2_min_Xt_list, 
+del CC2_max_X, CC2_max_X_final, CC2_max_X_list, CC2_max_Xt, CC2_max_Xt_final, CC2_max_Xt_list
+del CC1_X, CC1_X_final, CC1_X_list, CC1_Xt, CC1_Xt_final, CC1_Xt_list
+del Test, i, test_sz, X_sel, X_sel_split, X_Supervisor, X_test, X_train, X_y_Supervisor, X_y_test
+del X_y_train, y_Supervisor, y_test, y_train, X, y 
