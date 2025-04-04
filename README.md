@@ -8,3 +8,4 @@ The method leverages the CC function to compute the differences between the feat
 For classification of 33 subjects, I employ the CatBoost classifier, optimizing its performance using GridSearch over different model parameters and 5-fold cross-validation.
 
 With this approach, the model achieves ~97% accuracy when the test size is 0.2.
+
