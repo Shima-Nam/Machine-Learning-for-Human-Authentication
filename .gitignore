@@ -1,0 +1,8 @@
+
+*.tsv
+*.cpython*
+__pycache__
+catboost_info/
+
+# Ignore features.csv file as it is not authorized to be shared
+features.csv
