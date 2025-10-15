@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from .cc_computation import compute_CC_features
+from .cc_computation import CC
 
 # -----------------------------------------------------------------------------
 # Function: run_simulation
@@ -40,19 +40,24 @@ def run_simulation(X_sel, test_sizes, iterations=10, random_state=108):
         CC1_Xt_list, CC2_min_Xt_list, CC2_max_Xt_list = [], [], []
 
         for it in range(iterations):
-            # Sample 110 beats per subject
-            data = X_sel.groupby("Subject_ID", group_keys=False).apply(
-                lambda x: x.sample(n=110, random_state=random_state)
-            ).reset_index(drop=True)
-            # Sample 10 supervisor beats per subject
-            supervisor = data.groupby("Subject_ID", group_keys=False).apply(
-                lambda x: x.sample(n=10)
-            ).reset_index(drop=True)
+            # Sample up to 110 beats per subject
+            data = (
+                X_sel.loc[:, X_sel.columns]  # ensures we're not operating on the group column itself
+                .groupby("Subject_ID", group_keys=False)
+                .apply(lambda x: x.sample(n=min(len(x), 110), random_state=random_state))
+                .reset_index(drop=True)
+            )
+            
+            # Sample up to 10 supervisor beats per subject
+            supervisor = (
+                data.loc[:, data.columns]
+                .groupby("Subject_ID", group_keys=False)
+                .apply(lambda x: x.sample(n=min(len(x), 10), random_state=random_state))
+                .reset_index(drop=True)
+            )
+            
             # Remove supervisor beats from data
-            if hasattr(supervisor.index, 'get_level_values'):
-                supervisor_idx = supervisor.index.get_level_values(1)
-            else:
-                supervisor_idx = supervisor.index
+            supervisor_idx = supervisor.index
             X_split = data.drop(supervisor_idx).reset_index(drop=True)
 
             # Data validation: check if enough samples remain for splitting
@@ -86,8 +91,8 @@ def run_simulation(X_sel, test_sizes, iterations=10, random_state=108):
             test_df["Subject_ID"] = y_test.reset_index(drop=True)
 
             # Compute CC features for train and test sets
-            CC1_X, CC2_min_X, CC2_max_X = compute_CC_features(train_df, supervisor_df)
-            CC1_Xt, CC2_min_Xt, CC2_max_Xt = compute_CC_features(test_df, supervisor_df)
+            CC1_X, CC2_min_X, CC2_max_X = CC(train_df, supervisor_df)
+            CC1_Xt, CC2_min_Xt, CC2_max_Xt = CC(test_df, supervisor_df)
 
             # Collect results for this iteration
             CC1_X_list.append(CC1_X)

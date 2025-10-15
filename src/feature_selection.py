@@ -46,9 +46,15 @@ def select_features_dendrogram(
     X = df_scaled.drop('Subject_ID', axis=1)
     # Compute Spearman correlation matrix
     corr = spearmanr(X).correlation
+    
+    # Handle case where spearmanr returns a scalar instead of a matrix
+    if not isinstance(corr, np.ndarray) or corr.ndim != 2:
+        raise ValueError("Spearman correlation failed — likely due to constant or identical features.")
+    
     # Ensure symmetry and set diagonal to 1
     corr = (corr + corr.T) / 2
     np.fill_diagonal(corr, 1)
+
     # Convert correlation to distance matrix for clustering
     distance_matrix = 1 - np.abs(corr)
     # Perform hierarchical clustering (Ward linkage)
