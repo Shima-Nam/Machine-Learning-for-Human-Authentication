@@ -4,9 +4,7 @@ from src.data_loader import load_and_prepare_data
 from src.feature_selection import select_features_dendrogram
 from src.model_pipeline import run_pipeline
 from src.visualization import plot_accuracy_vs_features, plot_best_accuracy_vs_test_size
-
-DATA_PATH = "data/features.csv"
-RESULTS_PATH = "results/results.pkl"
+from src.config import DATA_PATH, RESULTS_PATH, FEATURE_NB, TEST_SIZES, NUM_FEATURES, NUM_SUBJECTS, BEATS_PER_SUBJECT, RANDOM_SEED
 
 # -----------------------------------------------------------------------------
 # Function: main
@@ -18,7 +16,13 @@ def main():
     # Data validation: check if data file exists
     if not os.path.isfile(DATA_PATH):
         raise FileNotFoundError(f"Data file not found: {DATA_PATH}")
-    df = load_and_prepare_data(DATA_PATH)
+    df = load_and_prepare_data(
+        csv_path=DATA_PATH,
+        num_features=NUM_FEATURES,
+        num_subjects=NUM_SUBJECTS,
+        beats_per_subject=BEATS_PER_SUBJECT,
+        random_seed=RANDOM_SEED
+    )
     print("Data loaded.")
 
     print("Selecting features...")
@@ -32,12 +36,17 @@ def main():
         raise ValueError(f"The following selected features are missing in the DataFrame: {missing_features}")
     X_sel = df[selected_features_names].copy()
     X_sel['Subject_ID'] = df.Subject_ID
-    feature_nb = [10, 20, 31]
-    if any(nb > len(selected_features_names) for nb in feature_nb):
+
+    if any(nb > len(selected_features_names) for nb in FEATURE_NB):
         raise ValueError("feature_nb contains a value greater than the number of selected features.")
 
     print("Running model pipeline (this may take a while)...")
-    results = run_pipeline(X_sel, scaler, feature_nb=feature_nb)
+    results = run_pipeline(
+        X_sel, 
+        scaler, 
+        feature_nb = FEATURE_NB,
+        random_seed = RANDOM_SEED
+    )
     print("Pipeline finished.")
 
     # Ensure results directory exists
@@ -53,11 +62,10 @@ def main():
     with open(RESULTS_PATH, "rb") as f:
         loaded_results = pickle.load(f)
 
-    test_sizes = [0.6, 0.4, 0.2]
     print("Plotting accuracy vs features...")
-    plot_accuracy_vs_features(loaded_results, feature_nb, test_sizes)
+    plot_accuracy_vs_features(loaded_results, FEATURE_NB, TEST_SIZES)
     print("Plotting best accuracy vs test size...")
-    plot_best_accuracy_vs_test_size(loaded_results, feature_nb)
+    plot_best_accuracy_vs_test_size(loaded_results, FEATURE_NB)
     print("All done!")
 
 if __name__ == "__main__":

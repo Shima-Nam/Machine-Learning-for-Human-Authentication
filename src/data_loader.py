@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 
+
 # -----------------------------------------------------------------------------
 # Function: load_and_prepare_data
 # Loads a CSV file containing feature data, assigns column names, adds a Subject_ID
@@ -17,7 +18,7 @@ import os
 # Returns:
 #   pd.DataFrame: Prepared and validated DataFrame with features and Subject_ID.
 # -----------------------------------------------------------------------------
-def load_and_prepare_data(csv_path, num_features=170, num_subjects=33, beats_per_subject=160, random_seed=108):
+def load_and_prepare_data(csv_path, num_features, num_subjects, beats_per_subject, random_seed):
     # Check if the file exists
     if not os.path.isfile(csv_path):
         raise FileNotFoundError(f"File not found: {csv_path}")

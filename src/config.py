@@ -1,0 +1,9 @@
+DATA_PATH = "data/features.csv"
+RESULTS_PATH = "results/results.pkl"
+
+FEATURE_NB = [10, 20, 31]
+TEST_SIZES = [0.6, 0.4, 0.2]
+NUM_FEATURES = 170
+NUM_SUBJECTS = 33
+BEATS_PER_SUBJECT = 160
+RANDOM_SEED = 108

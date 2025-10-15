@@ -170,7 +170,7 @@ def run_classification(CC_X_dict, feature_nb, param_grid, random_seed):
 # Returns:
 #   results (dict): Dictionary containing classification results for each test size and feature subset.
 # -----------------------------------------------------------------------------
-def run_pipeline(X_sel, scaler, feature_nb=[10, 20, 31], random_seed=108):
+def run_pipeline(X_sel, scaler, feature_nb, random_seed):
     """
     Main pipeline: sampling, CC computation, and classification.
     """
